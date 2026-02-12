@@ -1,0 +1,74 @@
+---
+description: "REST API controller conventions (BFF, no auth)"
+globs: ["**/web/**/*.java"]
+---
+
+# API Controllers Rules
+
+## Overview
+REST controllers expose the **BFF API** at `/api/*`. This project has **no authentication**; auth is to be added during AISprint training. Backend is a **separate entity**; no assumption that a specific frontend exists.
+
+## Controller Location
+`src/main/java/com/aisprint/petclinic/web/`
+
+## Controller Pattern
+
+### Basic Structure
+```java
+@RestController
+@RequestMapping("/api/entities")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
+public class EntityController {
+
+    private final ClinicService clinicService;
+
+    public EntityController(ClinicService clinicService) {
+        this.clinicService = clinicService;
+    }
+}
+```
+
+### Read-Only Endpoints (Current Pattern)
+```java
+@GetMapping
+public ResponseEntity<List<EntityDto>> list() {
+    Collection<Entity> entities = clinicService.findAllEntities();
+    List<EntityDto> dtos = entities.stream().map(DtoMapper::toEntityDto).collect(Collectors.toList());
+    return ResponseEntity.ok(dtos);
+}
+
+@GetMapping("/{id}")
+public ResponseEntity<EntityDto> get(@PathVariable int id) {
+    Entity entity = clinicService.findEntityById(id);
+    if (entity == null) {
+        return ResponseEntity.notFound().build();
+    }
+    return ResponseEntity.ok(DtoMapper.toEntityDto(entity));
+}
+```
+
+## DTOs and Mapping
+
+### DTOs Location
+`src/main/java/com/aisprint/petclinic/web/dto/`
+- Use Java **records** for DTOs (e.g. `OwnerDto`, `PetDto`, `VetDto`).
+- Never expose JPA entities directly in API responses.
+
+### Mapper Location
+`src/main/java/com/aisprint/petclinic/web/util/DtoMapper.java`
+- Static utility methods: `toOwnerDto(Owner)`, `toPetDto(Pet)`, etc.
+- Controllers call `DtoMapper.toXxx(entity)` or stream over collections.
+
+## CORS
+- All BFF controllers use `@CrossOrigin(origins = "*", allowedHeaders = "*")`.
+- Global CORS is also configured in `config/WebConfig.java`.
+
+## Exception Handling
+- `web/advice/GlobalExceptionHandler.java` — `@RestControllerAdvice` for generic exception → JSON error response.
+
+## Important Conventions
+- **Constructor injection** for `ClinicService` (no field injection).
+- Return `ResponseEntity<T>` with appropriate status: `ResponseEntity.ok()`, `ResponseEntity.notFound()`.
+- Use **path variables** for IDs: `@PathVariable int id`.
+- Use **optional query params** where needed: `@RequestParam(required = false) String lastName`.
+- No `@PreAuthorize` or security annotations in this baseline.

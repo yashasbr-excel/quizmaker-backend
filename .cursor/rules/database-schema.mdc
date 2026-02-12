@@ -1,0 +1,63 @@
+---
+description: "Database schema and HSQLDB rules"
+globs: ["**/*.sql", "**/model/**/*.java"]
+---
+
+# Database Schema Rules
+
+## Overview
+This application uses **HSQLDB (in-memory)** with Spring's `spring.sql.init` for schema and data. **No migration framework** (no Flyway/Liquibase). **No users or roles tables** in this baseline; authentication is added during AISprint training.
+
+## Schema Files Location
+- **Schema DDL:** `src/main/resources/db/hsqldb/initDB.sql`
+- **Seed data:** `src/main/resources/db/hsqldb/populateDB.sql`
+
+## When Making Schema Changes
+
+### Adding a New Table
+1. Add `CREATE TABLE` and indexes to `initDB.sql` (order matters for FKs).
+2. Add `INSERT` statements to `populateDB.sql` for seed data.
+3. Create the JPA entity in `com.aisprint.petclinic.model`.
+4. Add a short comment in the SQL with date/description.
+
+### Modifying Existing Tables
+1. Edit `initDB.sql` and any affected `populateDB.sql` inserts.
+2. Update the corresponding JPA entity (columns, `@Column` names).
+3. Document manual migration SQL for existing deployments if needed.
+
+### Column Naming
+- **Snake_case** for column names: `first_name`, `birth_date`, `visit_date`.
+- Primary keys: `id INTEGER IDENTITY PRIMARY KEY`.
+- Foreign keys: `{referenced_table}_id` (e.g. `owner_id`, `pet_id`, `type_id`).
+
+### Data Types
+- Strings: `VARCHAR(n)` with sensible length.
+- Dates: `DATE`.
+- Integers: `INTEGER`.
+- HSQLDB-specific: `VARCHAR_IGNORECASE` for case-insensitive text if needed (e.g. `last_name`).
+
+### Foreign Key Pattern
+```sql
+ALTER TABLE child_table ADD CONSTRAINT fk_child_parent
+  FOREIGN KEY (parent_id) REFERENCES parent_table (id);
+```
+
+## Existing Tables (No users/roles)
+- `vets` — Veterinarians
+- `specialties` — Vet specialties
+- `vet_specialties` — Join table (vet_id, specialty_id)
+- `types` — Pet types
+- `owners` — Pet owners
+- `pets` — Pets
+- `visits` — Pet visits
+
+## Entity Location
+`src/main/java/com/aisprint/petclinic/model/`
+- Base hierarchy: `BaseEntity` → `NamedEntity`, `Person`.
+- Entities: `Owner`, `Pet`, `PetType`, `Visit`, `Vet`, `Specialty`.
+- Keep entity field names and `@Table`/`@Column` in sync with SQL.
+
+## Important Notes
+- Schema is recreated on each application restart (in-memory DB).
+- `spring.jpa.hibernate.ddl-auto=none` — JPA does not create schema; SQL scripts do.
+- Keep `initDB.sql`, `populateDB.sql`, and model entities in sync.

@@ -1,0 +1,51 @@
+---
+description: "Repository layer (Spring Data JPA)"
+globs: ["**/repository/**/*.java"]
+---
+
+# Repository Layer Rules
+
+## Overview
+This project uses **Spring Data JPA only**. Repositories extend `JpaRepository` and add custom queries where needed.
+
+## Repository Location
+`src/main/java/com/aisprint/petclinic/repository/`
+
+## Repository Pattern
+
+### Interface Definition
+Each repository is an interface extending `JpaRepository<Entity, Integer>`:
+
+```java
+public interface OwnerRepository extends JpaRepository<Owner, Integer> {
+
+    @Query("SELECT DISTINCT owner FROM Owner owner LEFT JOIN FETCH owner.pets WHERE owner.lastName LIKE :lastName%")
+    Collection<Owner> findByLastName(@Param("lastName") String lastName);
+
+    @Query("SELECT owner FROM Owner owner LEFT JOIN FETCH owner.pets WHERE owner.id = :id")
+    Owner findByIdWithPets(@Param("id") int id);
+
+    @Query("SELECT owner FROM Owner owner LEFT JOIN FETCH owner.pets")
+    Collection<Owner> findAllWithPets();
+}
+```
+
+### Naming and Queries
+- Use **JPQL** with `@Query` for custom logic (e.g. fetch joins to avoid N+1).
+- Use `LEFT JOIN FETCH` when the controller needs a collection (e.g. owner with pets, vet with specialties).
+- Inherited methods: `findById(Integer)`, `save()`, `delete()`, `findAll()` — use as-is or override with a custom `@Query` when fetch is needed.
+- Use `@Param("name")` for query parameters.
+
+## Existing Repositories
+- `OwnerRepository` — findByLastName, findByIdWithPets, findAllWithPets
+- `PetRepository` — findByIdWithDetails
+- `PetTypeRepository` — findAllOrderByName, findByName
+- `VisitRepository` — findByPetId
+- `VetRepository` — findAllWithSpecialties, findByIdWithSpecialties
+- `SpecialtyRepository` — findAllOrderByName
+
+## Important Conventions
+- **No `@Repository`** needed on interfaces that extend JpaRepository (Spring Data provides it).
+- **Do not** put business logic here; only data access.
+- Prefer **read-only fetch** queries for list/detail endpoints to avoid lazy-load issues.
+- Use `Integer` as ID type to match `BaseEntity.getId()`.

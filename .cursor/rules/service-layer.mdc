@@ -1,0 +1,76 @@
+---
+description: "Service layer conventions"
+globs: ["**/service/**/*.java"]
+---
+
+# Service Layer Rules
+
+## Overview
+Services provide transaction boundaries and orchestration between controllers and repositories. The main facade is **ClinicService**.
+
+## Service Location
+`src/main/java/com/aisprint/petclinic/service/`
+
+## Main Service
+- **ClinicService** — interface for all clinic operations (owners, pets, vets, visits, pet types, specialties).
+- **ClinicServiceImpl** — single implementation; injects all repositories via constructor.
+
+## Service Pattern
+
+### Interface
+```java
+public interface ClinicService {
+    Owner findOwnerById(int id);
+    Collection<Owner> findAllOwners();
+    Collection<Owner> findOwnerByLastName(String lastName);
+    void saveOwner(Owner owner);
+    void deleteOwner(Owner owner);
+    // ... similar for Pet, Vet, Visit, PetType, Specialty
+}
+```
+
+### Implementation
+```java
+@Service
+public class ClinicServiceImpl implements ClinicService {
+
+    private final OwnerRepository ownerRepository;
+    private final PetRepository petRepository;
+    // ... other repositories
+
+    public ClinicServiceImpl(OwnerRepository ownerRepository, PetRepository petRepository, ...) {
+        this.ownerRepository = ownerRepository;
+        this.petRepository = petRepository;
+        // ...
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Owner findOwnerById(int id) {
+        return ownerRepository.findByIdWithPets(id);
+    }
+
+    @Override
+    @Transactional
+    public void saveOwner(Owner owner) {
+        ownerRepository.save(owner);
+    }
+}
+```
+
+## Transaction Management
+- **Read operations:** `@Transactional(readOnly = true)`.
+- **Write operations:** `@Transactional` (default).
+- All transaction boundaries are in the service layer; repositories do not declare `@Transactional`.
+
+## Method Naming
+- `findXxxById(int id)` — single entity; return null if not found.
+- `findAllXxx()` / `findXxx()` — collections.
+- `findXxxByYyy(...)` — by criteria (e.g. findOwnerByLastName).
+- `saveXxx(Entity e)`, `deleteXxx(Entity e)`.
+
+## Important Rules
+- **Constructor injection** only for repositories.
+- Services work with **entities only**; no DTOs or HTTP concerns.
+- Return `null` for "not found" (controllers translate to 404).
+- Keep services stateless; one method = one transaction.
